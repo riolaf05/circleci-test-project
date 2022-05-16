@@ -1,21 +1,11 @@
-# Set base image for application image
-FROM python:3.10
+FROM python:2.7.14
 
-# Working Directory of container image
-WORKDIR /app
+RUN mkdir /opt/hello_word/
+WORKDIR /opt/hello_word/
 
-# Copy requirements file from pwd to container working directory
-COPY ./requirements.txt /app/
+COPY requirements.txt .
+COPY dist/hello_world /opt/hello_word/
 
-# Install packages from requirements.txt
-RUN pip3 install --no-cache-dir --upgrade pip &&\
-    pip3 install --no-cache-dir -r requirements.txt 
+EXPOSE 80
 
-# Copy source code from pwd to working directory
-COPY ./ /app/
-
-# Expose container port
-EXPOSE 5000
-
-# Set run command
-CMD [ "python3", "app.py" ]
+CMD [ "./hello_world" ]

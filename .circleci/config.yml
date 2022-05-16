@@ -1,78 +1,33 @@
-# Python CircleCI 2.0 configuration file
-#
-# Check https://circleci.com/docs/2.0/language-python/ for more details
-#
 version: 2
 jobs:
-  lint_files:
-    environment:
-      level: lint-demo
+  build:
     docker:
-      - image: cimg/python:3.10.0-node
-        auth:
-            # Environmental variables set from $context_name context
-            username: $dockerhub_username
-            password: $dockerhub_password
-
+      - image: circleci/python:2.7.14
+        environment:
+          FLASK_CONFIG: testing
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - v1-dependencies-{{ checksum "requirements.txt" }}
-            - v1-dependencies-
       - run:
-          name: install dependencies
+          name: Setup VirtualEnv
           command: |
-            make init_setup
-            # Install and setup hadolint
-            wget -O hadolint https://github.com/hadolint/hadolint/releases/download/v2.8.0/hadolint-Linux-x86_64
-            sudo mv hadolint /usr/local/bin/hadolint
-            sudo chmod +x /usr/local/bin/hadolint
-      - save_cache:
-          paths:
-            - ./venv
-          key: v1-dependencies-{{ checksum "requirements.txt" }}
+            echo 'export TAG=0.1.${CIRCLE_BUILD_NUM}' >> $BASH_ENV
+            echo 'export IMAGE_NAME=python-circleci-docker' >> $BASH_ENV 
+            virtualenv helloworld
+            . helloworld/bin/activate
+            pip install --no-cache-dir -r requirements.txt
       - run:
-          name: run lint
+          name: Run Tests
           command: |
-            # . venv/bin/activate
-            make lint
-            echo "$level worked champ!"
-  
-  flask_app:
-    environment:
-      imageName: rio05docker/cicleci_python_test 
-    # specity what will execute steps
-    docker:
-      - image: cimg/python:3.10.0-node
-        auth:
-          # Environmental variables set from $context_name context
-          username: $dockerhub_username
-          password: $dockerhub_password
-    
-    steps:
-      - checkout
+            . helloworld/bin/activate
+            python test_hello_world.py
       - setup_remote_docker:
-          version: 19.03.13
           docker_layer_caching: true
       - run:
-          name: Build, tag and push ML environment image
+          name: Build and push Docker image
           command: |
-            docker build -t $imageName .
-            docker tag $imageName $dockerhub_username/$imageName
-            echo "$dockerhub_password" | docker login --username $dockerhub_username --password-stdin
-            docker push $dockerhub_username/$imageName
-    
-workflows:
-  version: 2
-  "python_env_workflow":
-      jobs:
-        - lint_files:
-            context:
-              - docker credentials
-        - flask_app:
-            requires:
-              - lint_files
-            context:
-              - docker credentials
-           
+            . helloworld/bin/activate
+            pyinstaller -F hello_world.py
+            docker build -t $DOCKER_LOGIN/$IMAGE_NAME:$TAG .
+            echo $DOCKER_PWD | docker login -u $DOCKER_LOGIN --password-stdin
+            docker push $DOCKER_LOGIN/$IMAGE_NAME:$TAG
+   
